@@ -3,4 +3,4 @@ Machine Learning Model that classifies 101 types of Food
 
 
 
-Test pushing using VS code
+Test pushing using VSCODE
