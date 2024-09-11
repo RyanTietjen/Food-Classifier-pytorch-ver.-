@@ -1,12 +1,13 @@
 """
 Ryan Tietjen
-Aug 2024
+Aug-Sep 2024
 Helper functions related to setting up the data
 """
 
 import torch
+import copy
 from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split, Subset
 from pathlib import Path
 
 def get_data(training_transforms,
@@ -83,3 +84,57 @@ def get_data(training_transforms,
                                         num_workers=num_workers)
 
     return train, test
+
+def get_data_from_S3(dataset, train_ratio=0.8, batch_size=128, num_workers=0, train_transform=None, test_transform=None):
+    num_train = int(len(dataset) * train_ratio)
+    """
+    Splits a dataset into training and testing sets, applies transformations, and creates DataLoaders for both.
+
+    Args:
+        dataset (Dataset): The dataset to be split into training and testing sets. This should be a PyTorch Dataset.
+        train_ratio (float, optional): The proportion of the dataset to be used for training. Defaults to 0.8.
+        batch_size (int, optional): Number of samples per batch to load. Defaults to 128.
+        num_workers (int, optional): How many subprocesses to use for data loading. 0 means that the data will be loaded in the main process. Defaults to 0.
+        train_transform (callable, optional): A function/transform that takes in a sample and returns a transformed version for the training set. Defaults to None.
+        test_transform (callable, optional): A function/transform that takes in a sample and returns a transformed version for the testing set. Defaults to None.
+
+    Returns:
+        tuple: A tuple containing (train_loader, test_loader) where:
+            - train_loader (DataLoader): DataLoader for the training set.
+            - test_loader (DataLoader): DataLoader for the testing set.
+
+    Example:
+        >>> dataset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=None)
+        >>> train_loader, test_loader = get_data_from_S3(
+        ...     dataset,
+        ...     train_ratio=0.8,
+        ...     batch_size=100,
+        ...     num_workers=4,
+        ...     train_transform=torchvision.transforms.ToTensor(),
+        ...     test_transform=torchvision.transforms.ToTensor()
+        ... )
+        >>> for images, labels in train_loader:
+        ...     # Do something with the images and labels
+
+    Note:
+        Ensure that the dataset passed as the `dataset` argument supports transformations, which might not be the case for custom datasets or certain pre-packaged torchvision datasets.
+    """
+    num_test = len(dataset) - num_train
+
+    # Split the dataset
+    train_dataset, test_dataset = random_split(dataset, [num_train, num_test])
+
+    # Apply the appropriate transformations if specified
+    if train_transform:
+        # You need to ensure that the dataset supports transformations
+        # For example, if using a custom dataset or torchvision datasets
+        train_dataset.dataset.transform = train_transform
+
+    if test_transform:
+        test_dataset.dataset.transform = test_transform
+
+    # Create the DataLoaders
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+    return train_loader, test_loader
